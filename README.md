@@ -17,6 +17,7 @@ Usage of ./static:
 
 ```
 $ ./static -gen-config
+logging: false
 http_laddr: :80
 https_laddr: :443
 tls_cert_path: /etc/blah/example.cert

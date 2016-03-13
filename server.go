@@ -6,6 +6,14 @@ import (
 	"net/http"
 )
 
+func loggedHandler(prefix string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s: %s request [%s] from %s\n", prefix, r.Method, r.URL, r.RemoteAddr)
+		h.ServeHTTP(w, r)
+		return
+	})
+}
+
 func authedHandler(realm string, users map[string]string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if reqUser, reqPass, ok := r.BasicAuth(); ok {
@@ -40,8 +48,14 @@ func serve(conf *config) {
 		for _, dir := range conf.PublicDirs {
 			mux.Handle(dir.HTTPPath, http.StripPrefix(dir.HTTPPath, http.FileServer(http.Dir(dir.DirPath))))
 		}
+		var h http.Handler
+		if conf.Logging {
+			h = loggedHandler("http", mux)
+		} else {
+			h = mux
+		}
 		go func() {
-			if err = http.ListenAndServe(conf.HTTPLAddr, mux); err != nil {
+			if err = http.ListenAndServe(conf.HTTPLAddr, h); err != nil {
 				log.Fatalf("listening http on %s error: %s\n", conf.HTTPLAddr, err.Error())
 			}
 		}()
@@ -58,8 +72,14 @@ func serve(conf *config) {
 				http.StripPrefix(dir.HTTPPath, http.FileServer(http.Dir(dir.DirPath)))),
 			)
 		}
+		var h http.Handler
+		if conf.Logging {
+			h = loggedHandler("https", mux)
+		} else {
+			h = mux
+		}
 		go func() {
-			if err = http.ListenAndServeTLS(conf.HTTPSLAddr, conf.TLSCertPath, conf.TLSKeyPath, mux); err != nil {
+			if err = http.ListenAndServeTLS(conf.HTTPSLAddr, conf.TLSCertPath, conf.TLSKeyPath, h); err != nil {
 				log.Fatalf("listening https on %s error: %s\n", conf.HTTPSLAddr, err.Error())
 			}
 		}()

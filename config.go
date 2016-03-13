@@ -22,6 +22,8 @@ type user struct {
 }
 
 type config struct {
+	Logging bool `yaml:"logging"`
+
 	HTTPLAddr   string `yaml:"http_laddr"`
 	HTTPSLAddr  string `yaml:"https_laddr"`
 	TLSCertPath string `yaml:"tls_cert_path"`
