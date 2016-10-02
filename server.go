@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
+
+	"rsc.io/letsencrypt"
 )
 
 func loggedHandler(prefix string, h http.Handler) http.Handler {
@@ -40,9 +43,7 @@ func allowedUsers(allowedUsernames []string, allUsers map[string]string) (users 
 	return
 }
 
-func serve(conf *config) {
-	var err error
-
+func startListenHTTP(conf *config) {
 	if conf.HTTPLAddr != "" {
 		mux := http.NewServeMux()
 		for _, dir := range conf.PublicDirs {
@@ -55,12 +56,14 @@ func serve(conf *config) {
 			h = mux
 		}
 		go func() {
-			if err = http.ListenAndServe(conf.HTTPLAddr, h); err != nil {
+			if err := http.ListenAndServe(conf.HTTPLAddr, h); err != nil {
 				log.Fatalf("listening http on %s error: %s\n", conf.HTTPLAddr, err.Error())
 			}
 		}()
 	}
+}
 
+func startListenHTTPS(conf *config) {
 	if conf.HTTPSLAddr != "" {
 		mux := http.NewServeMux()
 		for _, dir := range conf.PublicDirs {
@@ -72,20 +75,51 @@ func serve(conf *config) {
 				http.StripPrefix(dir.HTTPPath, http.FileServer(http.Dir(dir.DirPath)))),
 			)
 		}
+
 		var h http.Handler
 		if conf.Logging {
 			h = loggedHandler("https", mux)
 		} else {
 			h = mux
 		}
-		go func() {
-			if err = http.ListenAndServeTLS(conf.HTTPSLAddr, conf.TLSCertPath, conf.TLSKeyPath, h); err != nil {
-				log.Fatalf("listening https on %s error: %s\n", conf.HTTPSLAddr, err.Error())
-			}
-		}()
-	} else {
-		log.Println("since HTTPS is not configured, all authenticated dirs are disabled.")
-	}
 
+		if conf.TLSCertPaths != nil {
+			go func() {
+				if err := http.ListenAndServeTLS(conf.HTTPSLAddr, conf.TLSCertPaths.TLSCertPath, conf.TLSCertPaths.TLSKeyPath, h); err != nil {
+					log.Fatalf("listening https on %s error: %s\n", conf.HTTPSLAddr, err.Error())
+				}
+			}()
+			return
+		} else if conf.LetsencryptCacheFile != nil {
+			var m letsencrypt.Manager
+			if err := m.CacheFile(*conf.LetsencryptCacheFile); err != nil {
+				log.Fatalf("setting CacheFile failed: %v\n", err)
+			}
+			if len(conf.Hosts) > 0 {
+				m.SetHosts(conf.Hosts)
+			}
+			srv := &http.Server{
+				Addr: conf.HTTPSLAddr,
+				TLSConfig: &tls.Config{
+					GetCertificate: m.GetCertificate,
+				},
+				Handler: h,
+			}
+			go func() {
+				if err := srv.ListenAndServeTLS("", ""); err != nil {
+					log.Fatalf("listening https on %s error: %s\n", conf.HTTPSLAddr, err.Error())
+				}
+			}()
+			return
+		} else {
+			log.Printf("HTTPS is disabled because neither letsencrypt_cache_file or tls_cert_paths is set\n")
+		}
+	}
+	log.Println("all authenticated dirs are disabled since HTTPS is disabled")
+}
+
+func serve(conf *config) {
+	startListenHTTP(conf)
+	startListenHTTPS(conf)
 	select {}
 }

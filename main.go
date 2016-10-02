@@ -23,8 +23,14 @@ func genConfig() {
 	conf := new(config)
 	conf.HTTPLAddr = ":80"
 	conf.HTTPSLAddr = ":443"
-	conf.TLSCertPath = "/etc/blah/example.cert"
-	conf.TLSKeyPath = "/etc/blah/example.key"
+	/*
+		conf.TLSCertPaths = &tlsCertPaths{
+			TLSCertPath: "/etc/blah/example.cert",
+			TLSKeyPath:  "/etc/blah/example.key",
+		}
+	*/
+	cf := "/etc/static-letsencrypt"
+	conf.LetsencryptCacheFile = &cf
 	conf.Users = make(map[string]string)
 	conf.Users["john"] = "efjio"
 	conf.Users["huh"] = "fjweoifj"

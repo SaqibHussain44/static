@@ -16,21 +16,23 @@ type authedDir struct {
 	Usernames []string `yaml:"usernames"`
 }
 
-type user struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+type tlsCertPaths struct {
+	TLSCertPath string `yaml:"tls_cert_path"`
+	TLSKeyPath  string `yaml:"tls_key_path"`
 }
 
 type config struct {
 	Logging bool `yaml:"logging"`
 
-	HTTPLAddr   string `yaml:"http_laddr"`
-	HTTPSLAddr  string `yaml:"https_laddr"`
-	TLSCertPath string `yaml:"tls_cert_path"`
-	TLSKeyPath  string `yaml:"tls_key_path"`
+	HTTPLAddr  string `yaml:"http_laddr"`
+	HTTPSLAddr string `yaml:"https_laddr"`
+
+	TLSCertPaths         *tlsCertPaths `yaml:"tls_cert_paths"`
+	LetsencryptCacheFile *string       `yaml:"letsencrypt_cache_file"`
 
 	PublicDirs        []dir       `yaml:"public_dirs"`
 	AuthenticatedDirs []authedDir `yaml:"authenticated_dirs"`
+	Hosts             []string    `yaml:"hosts"`
 
 	Users map[string]string `yaml:"users"`
 }
